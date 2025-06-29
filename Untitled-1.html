@@ -1,0 +1,163 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Radio Player</title>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .radio-container {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background-color: rgba(255, 102, 0, 0.1);
+      padding: 15px 30px;
+      border-radius: 40px;
+      box-shadow: 0 0 20px rgba(255, 102, 0, 0.2);
+      backdrop-filter: blur(4px);
+    }
+
+    .play-btn {
+      width: 60px;
+      height: 60px;
+      border: none;
+      border-radius: 50%;
+      background: #ff6600;
+      color: #fff;
+      font-size: 30px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.3s ease;
+    }
+
+    .play-btn:hover {
+      background: #e65c00;
+    }
+
+    .spectrum {
+      display: flex;
+      gap: 6px;
+      align-items: end;
+      height: 40px;
+    }
+
+    .bar {
+      width: 6px;
+      background: #ff6600;
+      height: 10%;
+    }
+
+    @media screen and (max-width: 480px) {
+      .radio-container {
+        padding: 10px 20px;
+        gap: 12px;
+      }
+
+      .play-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+      }
+
+      .bar {
+        width: 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="radio-container">
+    <button class="play-btn" id="playPauseBtn">▶</button>
+    <div class="spectrum" id="spectrum"></div>
+  </div>
+
+  <audio id="audio" src="https://stream.zeno.fm/jpsr5zsxjlguv" crossorigin="anonymous" autoplay playsinline></audio>
+
+  <script>
+    const audio = document.getElementById('audio');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const spectrum = document.getElementById('spectrum');
+
+    let isPlaying = false;
+    let bars = [];
+    let animationId;
+    let context, analyser, source, dataArray;
+
+    // Crear barras
+    for (let i = 0; i < 20; i++) {
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      spectrum.appendChild(bar);
+      bars.push(bar);
+    }
+
+    function setupAudioContext() {
+      context = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = context.createAnalyser();
+      analyser.fftSize = 64;
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      source = context.createMediaElementSource(audio);
+      source.connect(analyser);
+      analyser.connect(context.destination);
+    }
+
+    function animateSpectrum() {
+      analyser.getByteFrequencyData(dataArray);
+      for (let i = 0; i < bars.length; i++) {
+        const value = dataArray[i];
+        const percent = value / 256;
+        const height = percent * 100;
+        bars[i].style.height = height + '%';
+      }
+      animationId = requestAnimationFrame(animateSpectrum);
+    }
+
+    async function autoPlayOnLoad() {
+      try {
+        if (!context) setupAudioContext();
+        await audio.play();
+        context.resume();
+        isPlaying = true;
+        playPauseBtn.textContent = '⏸';
+        animateSpectrum();
+      } catch (e) {
+        console.warn('El navegador bloqueó la reproducción automática. Debe hacer clic en ▶');
+      }
+    }
+
+    playPauseBtn.addEventListener('click', async () => {
+      if (!isPlaying) {
+        if (!context) setupAudioContext();
+        try {
+          await audio.play();
+          context.resume();
+          isPlaying = true;
+          playPauseBtn.textContent = '⏸';
+          animateSpectrum();
+        } catch (err) {
+          console.error('Error al reproducir:', err);
+        }
+      } else {
+        audio.pause();
+        cancelAnimationFrame(animationId);
+        isPlaying = false;
+        playPauseBtn.textContent = '▶';
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', autoPlayOnLoad);
+  </script>
+</body>
+</html>
